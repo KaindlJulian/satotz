@@ -1,18 +1,32 @@
-use nom::bytes::complete::{tag, take_until};
-use nom::multi::{many0, separated_list0};
-use nom::sequence::pair;
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::character::complete::{i32, multispace0, not_line_ending};
+use nom::combinator::{value, verify};
+use nom::multi::many0;
+use nom::sequence::{preceded, terminated};
 use nom::IResult;
 
+/// A comment or the `p cnf` header
+fn skip_line(input: &str) -> IResult<&str, ()> {
+    value(
+        (),
+        preceded(
+            alt((tag("c"), tag("p"))),
+            terminated(not_line_ending, multispace0),
+        ),
+    )(input)
+}
+
 fn parse_clause(input: &str) -> IResult<&str, Vec<i32>> {
-    let (input, clause_input) = take_until("0\n")(input)?;
-    let (_, literals) = separated_list0(tag(" "), nom::character::complete::i32)(clause_input)?;
+    let (input, literals) = many0(terminated(verify(i32, |l| *l != 0), multispace0))(input)?;
+    let (input, _) = terminated(tag("0"), multispace0)(input)?;
     Ok((input, literals))
 }
 
 pub fn parse_dimacs_cnf(input: &str) -> IResult<&str, Vec<Vec<i32>>> {
-    let (input, _) = many0(pair(tag("p cnf "), take_until("\n")))(input)?;
-    let (input, _) = many0(tag("\n"))(input)?;
-    let (input, clauses) = separated_list0(tag("0\n"), parse_clause)(input)?;
+    let (input, _) = multispace0(input)?;
+    let (input, _) = many0(skip_line)(input)?;
+    let (input, clauses) = many0(preceded(many0(skip_line), parse_clause))(input)?;
     Ok((input, clauses))
 }
 
