@@ -37,6 +37,10 @@ pub fn analyze(conflict: Conflict, analysis: &mut ConflictAnalysis, bcp: &mut Bc
 
     analysis.target_decision_level = prepare_for_backtracking(analysis, bcp);
 
+    let jump_level = analysis.target_decision_level;
+    bcp.events
+        .learn(&analysis.derived_clause, bcp.peek_clause_id(), jump_level);
+
     trail::backtrack(bcp, analysis.target_decision_level);
     learn_and_assign(analysis, bcp);
 }
@@ -127,8 +131,8 @@ fn prepare_for_backtracking(conflict: &mut ConflictAnalysis, bcp: &mut BcpContex
 /// adds the asserting clause to the formula and assigns the newly asserted literal
 fn learn_and_assign(conflict: &mut ConflictAnalysis, bcp: &mut BcpContext) {
     let reason = match bcp.add_clause(&conflict.derived_clause) {
-        AddedClause::Binary([_, b]) => Some(Reason::Binary(b)),
-        AddedClause::Long(clause_index) => Some(Reason::Long(clause_index)),
+        AddedClause::Binary([_, b], id) => Some(Reason::Binary(b, id)),
+        AddedClause::Long(clause_index, id) => Some(Reason::Long(clause_index, id)),
         _ => None,
     };
 
@@ -139,7 +143,7 @@ fn learn_and_assign(conflict: &mut ConflictAnalysis, bcp: &mut BcpContext) {
             reason,
         };
 
-        trail::assign(&mut bcp.assignment, &mut bcp.trail, step)
+        trail::assign(&mut bcp.assignment, &mut bcp.trail, &mut bcp.events, step)
     }
 }
 
@@ -151,7 +155,6 @@ mod test {
     use crate::bcp::{propagate, BcpContext};
     use crate::cnf::CNF;
     use crate::literal::Variable;
-    use crate::resize::Resize;
 
     #[test]
     fn test_non_chronological_backtracking() {
@@ -256,7 +259,7 @@ mod test {
             AssignedValue::True
         );
 
-        if let Reason::Long(clause) = bcp
+        if let Reason::Long(clause, _) = bcp
             .trail
             .get_step_for_variable(Variable::from_dimacs(7))
             .reason
@@ -303,12 +306,12 @@ mod test {
             bcp.assignment.literal_value(Literal::from_dimacs(-7)),
             AssignedValue::True
         );
-        assert_eq!(
+        assert!(matches!(
             bcp.trail
                 .get_step_for_variable(Variable::from_dimacs(7))
                 .reason,
-            Reason::Binary(Literal::from_dimacs(-2))
-        );
+            Reason::Binary(l, _) if l == Literal::from_dimacs(-2)
+        ));
 
         analysis.derived_clause.sort_unstable(); // not used below, we can clobber it
         assert_eq!(

@@ -2,10 +2,13 @@ use crate::literal::Literal;
 
 /// Type wrapper for readability. The index of the clause in [bcp::long_clauses].
 pub type ClauseIndex = usize;
+pub type ClauseId = u32;
 
 /// Contains metadata for a clause
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ClauseMeta {}
+pub struct ClauseMeta {
+    pub id: ClauseId,
+}
 
 /// Representation of one long clause (3+ literals) in the propagation datastructure [bcp::long_clauses]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

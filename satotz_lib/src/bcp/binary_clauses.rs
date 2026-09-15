@@ -1,5 +1,5 @@
 use crate::assignment::VariableAssignment;
-use crate::clause::ClauseMeta;
+use crate::clause::{ClauseId, ClauseMeta};
 use crate::literal::Literal;
 use crate::resize::Resize;
 
@@ -23,7 +23,7 @@ impl Resize for BinaryClauses {
 }
 
 impl BinaryClauses {
-    pub fn add_clause(&mut self, clause: [Literal; 2]) {
+    pub fn add_clause(&mut self, clause: [Literal; 2], id: ClauseId) {
         let max = clause[0].as_index().max(clause[1].as_index());
         if self.literal_lookup.len() <= max {
             //self.resize(max + 2);
@@ -32,9 +32,13 @@ impl BinaryClauses {
         for i in 0..2 {
             self.literal_lookup[clause[i].as_index()].push(BinaryClause {
                 other_literal: clause[i ^ 1],
-                header: Default::default(),
+                header: ClauseMeta { id },
             });
         }
+    }
+
+    pub fn literal_lookup(&self) -> &[Vec<BinaryClause>] {
+        &self.literal_lookup
     }
 
     /// Returns all binary clauses that contain the given literal

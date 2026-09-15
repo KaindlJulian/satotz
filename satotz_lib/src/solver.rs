@@ -3,6 +3,8 @@ use crate::cnf::CNF;
 use crate::literal::Literal;
 use crate::resize::Resize;
 use crate::search::{search, SearchContext};
+use std::io;
+use std::path::Path;
 
 #[derive(Default, Debug)]
 pub struct Solver {
@@ -41,13 +43,40 @@ impl Solver {
         self.search.bcp.add_clause(clause);
     }
 
+    /// Setup and start logging
+    pub fn open_event_log(&mut self, path: &Path, log_bcp: bool) -> io::Result<()> {
+        let heuristic = if self.search.use_dlis {
+            "dlis"
+        } else {
+            "first-unassigned"
+        };
+
+        let variables = self.variable_count;
+        let bcp = &mut self.search.bcp;
+
+        bcp.events.open(path, log_bcp, heuristic)?;
+        bcp.events
+            .init(variables, &bcp.binary_clauses, &bcp.long_clauses);
+        bcp.events.replay_trail(&bcp.trail);
+
+        Ok(())
+    }
+
+    pub fn close_event_log(&mut self) -> io::Result<()> {
+        self.search.bcp.events.finish()
+    }
+
     /// Check satisfiability of the formula
     pub fn solve(&mut self) -> bool {
-        loop {
+        let sat = loop {
             if let Some(result) = search(&mut self.search) {
-                return result;
+                break result;
             }
-        }
+        };
+
+        self.search.bcp.events.result(sat, &self.search.bcp.trail);
+
+        sat
     }
 
     /// Returns the current assignment, literals with unknown value are falsified

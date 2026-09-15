@@ -38,7 +38,7 @@ mod tests {
     fn test_parse_empty_clause() {
         let input = "0\n";
         let result = parse_clause(input).expect("parse error").1;
-        assert_eq!(result, vec![]);
+        assert_eq!(result, vec![] as Vec<i32>);
     }
 
     #[test]

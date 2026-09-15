@@ -12,6 +12,14 @@ struct Args {
     /// Disable DLIS decision heuristic
     #[arg(long)]
     no_dlis: bool,
+
+    /// Write the NDJSON event log to this file
+    #[arg(long, value_name = "FILE")]
+    events: Option<PathBuf>,
+
+    /// Also log an inspect event per clause BCP looks at
+    #[arg(long, requires = "events")]
+    events_bcp: bool,
 }
 
 fn main() {
@@ -23,7 +31,20 @@ fn main() {
         solver = solver.without_dlis();
     }
 
-    if solver.solve() {
+    if let Some(path) = &args.events {
+        if let Err(e) = solver.open_event_log(path, args.events_bcp) {
+            eprintln!("satotz: cannot write {}: {e}", path.display());
+            std::process::exit(1);
+        }
+    }
+
+    let sat = solver.solve();
+
+    if let Err(_) = solver.close_event_log() {
+        std::process::exit(1);
+    }
+
+    if sat {
         println!("s SATISFIABLE");
         println!("v {:?}", solver.assignment());
         std::process::exit(10);

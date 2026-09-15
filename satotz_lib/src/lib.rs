@@ -3,6 +3,7 @@ mod assignment;
 mod bcp;
 mod clause;
 pub mod cnf;
+mod events;
 mod literal;
 mod parse;
 mod resize;

@@ -4,8 +4,9 @@ use crate::bcp::conflict::Conflict;
 use crate::bcp::long_clauses::LongClauses;
 use crate::bcp::trail::{Reason, Step, Trail};
 use crate::bcp::watch::Watchlists;
-use crate::clause::ClauseIndex;
+use crate::clause::{ClauseId, ClauseIndex};
 use crate::cnf::CNF;
+use crate::events::{EventLog, InspectOutcome};
 use crate::literal::Literal;
 use crate::resize::Resize;
 
@@ -19,8 +20,8 @@ mod watch;
 pub enum AddedClause {
     Empty,
     Unit(Literal),
-    Binary([Literal; 2]),
-    Long(ClauseIndex),
+    Binary([Literal; 2], ClauseId),
+    Long(ClauseIndex, ClauseId),
 }
 
 /// data for bcp and backtracking
@@ -32,6 +33,8 @@ pub struct BcpContext {
     pub long_clauses: LongClauses,
     pub watch: Watchlists,
     pub trail: Trail,
+    pub events: EventLog,
+    next_clause_id: ClauseId,
 }
 
 impl Resize for BcpContext {
@@ -56,6 +59,16 @@ impl BcpContext {
         bcp
     }
 
+    /// workaround to get the next clause before it is actually added
+    pub fn peek_clause_id(&self) -> ClauseId {
+        self.next_clause_id + 1
+    }
+
+    fn next_clause_id(&mut self) -> ClauseId {
+        self.next_clause_id += 1;
+        self.next_clause_id
+    }
+
     pub fn add_clause(&mut self, literals: &[Literal]) -> AddedClause {
         match *literals {
             [] => {
@@ -72,17 +85,24 @@ impl BcpContext {
                     decision_level: trail::TOP_DECISION_LEVEL,
                     reason: Reason::Unit,
                 };
-                trail::assign(&mut self.assignment, &mut self.trail, step);
+                trail::assign(
+                    &mut self.assignment,
+                    &mut self.trail,
+                    &mut self.events,
+                    step,
+                );
                 AddedClause::Unit(a)
             }
             [a, b] => {
-                self.binary_clauses.add_clause([a, b]);
-                AddedClause::Binary([a, b])
+                let id = self.next_clause_id();
+                self.binary_clauses.add_clause([a, b], id);
+                AddedClause::Binary([a, b], id)
             }
             [a, b, ..] => {
-                let index = self.long_clauses.add_clause(literals);
+                let id = self.next_clause_id();
+                let index = self.long_clauses.add_clause(literals, id);
                 self.watch.watch_clause(index, [a, b]);
-                AddedClause::Long(index)
+                AddedClause::Long(index, id)
             }
         }
     }
@@ -110,20 +130,27 @@ fn bcp_binary_clauses(bcp: &mut BcpContext, literal: Literal) -> Result<(), Conf
         match bcp.assignment.literal_value(entry.other_literal) {
             // the other literal is true -> already satisfied
             AssignedValue::True => {
+                bcp.events
+                    .inspect_binary(entry, not_literal, InspectOutcome::Satisfied);
                 continue;
             }
             // the other literal is false -> conflict
             AssignedValue::False => {
+                bcp.events
+                    .inspect_binary(entry, not_literal, InspectOutcome::Falsified);
+                bcp.events.conflict_binary(entry, not_literal, &bcp.trail);
                 return Err(Conflict::BinaryClause([not_literal, entry.other_literal]));
             }
             // the other literal is unassigned -> clause became unit, propagate the other literal
             AssignedValue::Unknown => {
+                bcp.events
+                    .inspect_binary(entry, not_literal, InspectOutcome::Unit);
                 let step = Step {
                     assigned_literal: entry.other_literal,
                     decision_level: bcp.trail.current_decision_level(),
-                    reason: Reason::Binary(not_literal),
+                    reason: Reason::Binary(not_literal, entry.header.id),
                 };
-                trail::assign(&mut bcp.assignment, &mut bcp.trail, step);
+                trail::assign(&mut bcp.assignment, &mut bcp.trail, &mut bcp.events, step);
             }
         }
     }
@@ -143,10 +170,13 @@ fn bcp_long_clauses(bcp: &mut BcpContext, literal: Literal) -> Result<(), Confli
     'watches: for (watch_index, watch) in watches.iter_mut().enumerate() {
         // the clause is already satisfied by our stored satisfying literal
         if bcp.assignment.literal_is_true(watch.satisfying_literal) {
+            bcp.events
+                .inspect_blocked(&bcp.long_clauses, watch.clause_index);
             continue;
         }
 
         let clause = bcp.long_clauses.find_clause_mut(watch.clause_index);
+        let clause_id = clause.header().id;
         let literals = clause.literals_mut();
 
         // get the other watched literal
@@ -156,8 +186,13 @@ fn bcp_long_clauses(bcp: &mut BcpContext, literal: Literal) -> Result<(), Confli
             literals[0]
         };
 
+        // watched literals before change
+        let watched = [watched_literal_1, watched_literal_2];
+
         // the clause is already satisfied by the other watched literal
         if bcp.assignment.literal_is_true(watched_literal_2) {
+            bcp.events
+                .inspect_long(clause_id, watched, InspectOutcome::Satisfied);
             watch.satisfying_literal = watched_literal_2;
             continue;
         }
@@ -167,10 +202,17 @@ fn bcp_long_clauses(bcp: &mut BcpContext, literal: Literal) -> Result<(), Confli
             let current_literal = literals[i];
             match bcp.assignment.literal_value(current_literal) {
                 AssignedValue::True => {
+                    bcp.events
+                        .inspect_long(clause_id, watched, InspectOutcome::Satisfied);
                     watch.satisfying_literal = current_literal;
                     continue 'watches;
                 }
                 AssignedValue::Unknown => {
+                    bcp.events.inspect_long_moved(
+                        clause_id,
+                        watched,
+                        [current_literal, watched_literal_2],
+                    );
                     // change the watches
                     removed_watch_indices.push(watch_index);
                     watch.satisfying_literal = watched_literal_2;
@@ -189,19 +231,25 @@ fn bcp_long_clauses(bcp: &mut BcpContext, literal: Literal) -> Result<(), Confli
         match bcp.assignment.literal_value(watched_literal_2) {
             // clause became unit, propagate `watched_literal_2`
             AssignedValue::True | AssignedValue::Unknown => {
+                bcp.events
+                    .inspect_long(clause_id, watched, InspectOutcome::Unit);
+
                 literals[0] = watched_literal_2;
                 literals[1] = watched_literal_1;
 
                 let step = Step {
                     assigned_literal: watched_literal_2,
                     decision_level: bcp.trail.current_decision_level(),
-                    reason: Reason::Long(watch.clause_index),
+                    reason: Reason::Long(watch.clause_index, clause_id),
                 };
 
-                trail::assign(&mut bcp.assignment, &mut bcp.trail, step);
+                trail::assign(&mut bcp.assignment, &mut bcp.trail, &mut bcp.events, step);
             }
             // all literals are false, conflict
             AssignedValue::False => {
+                bcp.events
+                    .inspect_long(clause_id, watched, InspectOutcome::Falsified);
+                bcp.events.conflict(clause_id, literals, &bcp.trail);
                 result = Err(Conflict::LongClause(watch.clause_index));
                 break;
             }

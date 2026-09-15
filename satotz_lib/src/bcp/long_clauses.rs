@@ -1,4 +1,4 @@
-use crate::clause::{Clause, ClauseIndex};
+use crate::clause::{Clause, ClauseId, ClauseIndex};
 use crate::literal::Literal;
 
 /// Holds all long clauses during propagation
@@ -12,8 +12,9 @@ impl LongClauses {
         &self.clauses
     }
 
-    pub fn add_clause(&mut self, literals: &[Literal]) -> usize {
-        let clause = Clause::from_literals(literals);
+    pub fn add_clause(&mut self, literals: &[Literal], id: ClauseId) -> usize {
+        let mut clause = Clause::from_literals(literals);
+        clause.header_mut().id = id;
         self.clauses.push(clause);
         self.clauses.len() - 1
     }

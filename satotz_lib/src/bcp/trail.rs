@@ -1,6 +1,7 @@
 use crate::assignment::VariableAssignment;
 use crate::bcp::BcpContext;
-use crate::clause::ClauseIndex;
+use crate::clause::{ClauseId, ClauseIndex};
+use crate::events::EventLog;
 use crate::literal::{Literal, Variable};
 use crate::resize::Resize;
 
@@ -15,9 +16,9 @@ pub enum Reason {
     /// Implied by a unit clause
     Unit,
     /// Implied by a binary clause because the given other literal of the binary clause is false.
-    Binary(Literal),
+    Binary(Literal, ClauseId),
     /// Implied by a long clause because all but its first literal are false.
-    Long(ClauseIndex),
+    Long(ClauseIndex, ClauseId),
 }
 
 impl Reason {
@@ -25,8 +26,8 @@ impl Reason {
     pub fn causing_literals<'a>(&'a self, context: &'a BcpContext) -> &[Literal] {
         match self {
             Reason::SolverDecision | Reason::Unit => &[],
-            Reason::Binary(literal) => std::slice::from_ref(literal),
-            Reason::Long(clause_index) => &context.long_clauses.literals(*clause_index)[1..],
+            Reason::Binary(literal, _) => std::slice::from_ref(literal),
+            Reason::Long(clause_index, _) => &context.long_clauses.literals(*clause_index)[1..],
         }
     }
 }
@@ -97,7 +98,13 @@ impl Trail {
 }
 
 /// adds given step to the trail, assigning the literal
-pub fn assign(values: &mut VariableAssignment, trail: &mut Trail, step: Step) {
+pub fn assign(
+    values: &mut VariableAssignment,
+    trail: &mut Trail,
+    events: &mut EventLog,
+    step: Step,
+) {
+    events.assign(&step);
     trail.step_index_by_var[step.assigned_literal.variable().as_index()] = trail.steps.len();
     values.assign_true(step.assigned_literal);
     trail.steps.push(step);
@@ -111,13 +118,15 @@ pub fn decide_and_assign(bcp: &mut BcpContext, literal: Literal) {
         decision_level: bcp.trail.current_decision_level(),
         reason: Reason::SolverDecision,
     };
-    assign(&mut bcp.assignment, &mut bcp.trail, step);
+    assign(&mut bcp.assignment, &mut bcp.trail, &mut bcp.events, step);
 }
 
 /// backtracks to given decision level, undoing assignments of a higher level
 pub fn backtrack(bcp: &mut BcpContext, decision_level: u32) {
     // backtrack target must be lower than current decision level
     assert!(decision_level < bcp.trail.current_decision_level());
+
+    bcp.events.backtrack(&bcp.trail, decision_level);
 
     // Get the index corresponding to the lowest decision to undo
     let decision_level = decision_level as usize;
