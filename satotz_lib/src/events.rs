@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::path::Path;
 
-pub const PROTOCOL_VERSION: &str = "3";
+pub const PROTOCOL_VERSION: &str = "1";
 
 const BUF_BYTES: usize = 0xfffff; // 1 MiB
 
