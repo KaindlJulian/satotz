@@ -46,7 +46,7 @@ fn unexpected(rest: &str) -> String {
         .chars()
         .take(60)
         .collect();
-    format!("unexpected input at '{line}'")
+    format!("unexpected input at '{line}'").to_string()
 }
 
 #[cfg(test)]
