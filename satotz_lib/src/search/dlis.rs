@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_literal_scores() {
-        let cnf = CNF::from_dimacs("1 3 2 0\n-2 3 4 0\n-2 1 0\n2 3 0\n");
+        let cnf = CNF::from_dimacs("1 3 2 0\n-2 3 4 0\n-2 1 0\n2 3 0\n").unwrap();
         let mut bcp = BcpContext::from_cnf(&cnf);
         bcp.assignment.assign_true(Literal::from_dimacs(1));
 

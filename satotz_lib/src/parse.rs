@@ -1,17 +1,16 @@
 use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{i32, multispace0, not_line_ending};
-use nom::combinator::{value, verify};
+use nom::character::complete::{i32, multispace0, multispace1, not_line_ending};
+use nom::combinator::{all_consuming, eof, peek, value, verify};
 use nom::multi::many0;
 use nom::sequence::{preceded, terminated};
 use nom::IResult;
 
-/// A comment or the `p cnf` header
 fn skip_line(input: &str) -> IResult<&str, ()> {
     value(
         (),
         preceded(
-            alt((tag("c"), tag("p"))),
+            terminated(alt((tag("c"), tag("p"))), peek(alt((multispace1, eof)))),
             terminated(not_line_ending, multispace0),
         ),
     )(input)
@@ -27,7 +26,27 @@ pub fn parse_dimacs_cnf(input: &str) -> IResult<&str, Vec<Vec<i32>>> {
     let (input, _) = multispace0(input)?;
     let (input, _) = many0(skip_line)(input)?;
     let (input, clauses) = many0(preceded(many0(skip_line), parse_clause))(input)?;
+    let (input, _) = all_consuming(many0(skip_line))(input)?;
     Ok((input, clauses))
+}
+
+pub fn parse(input: &str) -> Result<Vec<Vec<i32>>, String> {
+    match parse_dimacs_cnf(input) {
+        Ok((_, clauses)) => Ok(clauses),
+        Err(nom::Err::Error(e) | nom::Err::Failure(e)) => Err(unexpected(e.input)),
+        Err(nom::Err::Incomplete(_)) => Err("parsing error".to_string()),
+    }
+}
+
+fn unexpected(rest: &str) -> String {
+    let line: String = rest
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .chars()
+        .take(60)
+        .collect();
+    format!("unexpected input at '{line}'")
 }
 
 #[cfg(test)]

@@ -161,7 +161,8 @@ mod test {
         // from https://baldur.iti.kit.edu/sat/files/2019/l07.pdf
         let cnf = CNF::from_dimacs(
             "1 2 0\n2 3 0\n-1 -4 5 0\n-1 4 6 0\n-1 -5 6 0\n-1 4 -6 0\n-1 -5 -6 0\n",
-        );
+        )
+        .unwrap();
 
         let mut analysis = ConflictAnalysis::default();
         let mut bcp = BcpContext::from_cnf(&cnf);
@@ -205,7 +206,7 @@ mod test {
 
     #[test]
     fn test_learn_unit_clause() {
-        let cnf = CNF::from_dimacs("-1 2 0\n-1 3 0\n-2 -3 0\n-4 1 0\n");
+        let cnf = CNF::from_dimacs("-1 2 0\n-1 3 0\n-2 -3 0\n-4 1 0\n").unwrap();
 
         let mut analysis = ConflictAnalysis::default();
         let mut bcp = BcpContext::from_cnf(&cnf);
@@ -237,7 +238,8 @@ mod test {
 
     #[test]
     fn long_clause() {
-        let cnf = CNF::from_dimacs("-1 2 0\n-1 3 0\n-2 -3 -4 -5 0\n-6 7 0\n-7 4 0\n-7 5 0\n");
+        let cnf =
+            CNF::from_dimacs("-1 2 0\n-1 3 0\n-2 -3 -4 -5 0\n-6 7 0\n-7 4 0\n-7 5 0\n").unwrap();
 
         let mut analysis = ConflictAnalysis::default();
         let mut bcp = BcpContext::from_cnf(&cnf);
@@ -285,7 +287,7 @@ mod test {
 
     #[test]
     fn binary_clause() {
-        let cnf = CNF::from_dimacs("-1 2 0\n-1 3 0\n-2 -4 -5 0\n-6 7 0\n-7 4 0\n-7 5 0\n");
+        let cnf = CNF::from_dimacs("-1 2 0\n-1 3 0\n-2 -4 -5 0\n-6 7 0\n-7 4 0\n-7 5 0\n").unwrap();
 
         let mut analysis = ConflictAnalysis::default();
         let mut bcp = BcpContext::from_cnf(&cnf);

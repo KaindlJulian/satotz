@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_basic_bcp() {
-        let cnf = CNF::from_dimacs("-1 2 0\n-2 3 0\n-2 -3 -4 0\n6 7 0\n");
+        let cnf = CNF::from_dimacs("-1 2 0\n-2 3 0\n-2 -3 -4 0\n6 7 0\n").unwrap();
         let mut bcp = BcpContext::from_cnf(&cnf);
 
         trail::decide_and_assign(&mut bcp, Literal::from_dimacs(1));
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_basic_conflict() {
-        let cnf = CNF::from_dimacs("-1 2 0\n-1 3 0\n-2 -3 0\n");
+        let cnf = CNF::from_dimacs("-1 2 0\n-1 3 0\n-2 -3 0\n").unwrap();
         let mut bcp = BcpContext::from_cnf(&cnf);
 
         trail::decide_and_assign(&mut bcp, Literal::from_dimacs(1));
@@ -307,7 +307,8 @@ mod tests {
 
     #[test]
     fn test_exercise_2_bcp_fixpoint() {
-        let cnf = CNF::from_dimacs("1 2 3 0\n-1 2 0\n-2 0\n-1 -2 0\n-3 -4 5 6 0\n-3 4 0\n");
+        let cnf =
+            CNF::from_dimacs("1 2 3 0\n-1 2 0\n-2 0\n-1 -2 0\n-3 -4 5 6 0\n-3 4 0\n").unwrap();
         let mut bcp = BcpContext::from_cnf(&cnf);
 
         assert!(propagate(&mut bcp).is_ok());
@@ -327,7 +328,7 @@ mod tests {
     fn test_exercise_5_conflict() {
         let cnf = CNF::from_dimacs(
             "-1 2 0\n-1 3 9 0\n-2 -3 4 0\n-4 5 10 0\n-4 6 11 0\n-5 -6 0\n1 7 -12 0\n1 8 0\n-7 -8 -13 0\n"
-        );
+        ).unwrap();
         let mut bcp = BcpContext::from_cnf(&cnf);
 
         trail::decide_and_assign(&mut bcp, Literal::from_dimacs(-9));
@@ -347,7 +348,7 @@ mod tests {
 
     #[test]
     fn test_exercise_6_failed_literals() {
-        let cnf = CNF::from_dimacs("-1 3 2 0\n-1 3 -2 0\n4 1 0\n-4 1 0\n");
+        let cnf = CNF::from_dimacs("-1 3 2 0\n-1 3 -2 0\n4 1 0\n-4 1 0\n").unwrap();
 
         for test_lit in [-1, 3, 4, 1, -2] {
             let mut bcp = BcpContext::from_cnf(&cnf);

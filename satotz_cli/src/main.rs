@@ -1,7 +1,9 @@
 use clap::Parser;
 use satotz_lib::cnf::CNF;
 use satotz_lib::solver::Solver;
+use std::io::{self, Write};
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 #[derive(Parser)]
 #[group(required = true)]
@@ -22,9 +24,14 @@ struct Args {
     events_bcp: bool,
 }
 
-fn main() {
+fn main() -> ExitCode {
     let args = Args::parse();
-    let cnf = CNF::from_file(args.file);
+
+    let cnf = match CNF::from_file(args.file.clone()) {
+        Ok(cnf) => cnf,
+        Err(e) => return fail(&format!("{}: {e}", args.file.display())),
+    };
+
     let mut solver = Solver::from_cnf(cnf);
 
     if args.no_dlis {
@@ -33,23 +40,29 @@ fn main() {
 
     if let Some(path) = &args.events {
         if let Err(e) = solver.open_event_log(path, args.events_bcp) {
-            eprintln!("satotz: cannot write {}: {e}", path.display());
-            std::process::exit(1);
+            return fail(&format!("cannot write {}: {e}", path.display()));
         }
     }
 
     let sat = solver.solve();
 
-    if let Err(_) = solver.close_event_log() {
-        std::process::exit(1);
+    if let Err(e) = solver.close_event_log() {
+        return fail(&format!("writing events: {e}"));
     }
 
     if sat {
         println!("s SATISFIABLE");
         println!("v {:?}", solver.assignment());
-        std::process::exit(10);
+        let _ = io::stdout().flush();
+        ExitCode::from(10)
     } else {
         println!("s UNSATISFIABLE");
-        std::process::exit(20);
+        let _ = io::stdout().flush();
+        ExitCode::from(20)
     }
+}
+
+fn fail(message: &str) -> ExitCode {
+    eprintln!("satotz: {message}");
+    ExitCode::from(1)
 }

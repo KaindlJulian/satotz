@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn test_formula() {
         let file = "../test_formulas/or.sat";
-        let mut solver = Solver::from_cnf(CNF::from_file_str(file)).without_dlis();
+        let mut solver = Solver::from_cnf(CNF::from_file_str(file).unwrap()).without_dlis();
         assert_eq!(solver.solve(), file.contains(".sat"));
     }
 
@@ -112,7 +112,7 @@ mod tests {
         for entry in fs::read_dir(PathBuf::from("../test_formulas")).unwrap() {
             let file = entry.unwrap();
             dbg!(file.file_name());
-            let mut solver = Solver::from_cnf(CNF::from_file(file.path())).without_dlis();
+            let mut solver = Solver::from_cnf(CNF::from_file(file.path()).unwrap()).without_dlis();
             let sat = solver.solve();
             dbg!(sat);
             assert_eq!(sat, file.file_name().to_str().unwrap().contains(".sat"));

@@ -1,6 +1,6 @@
 use crate::clause::Clause;
 use crate::literal::{Literal, Variable};
-use crate::parse::parse_dimacs_cnf;
+use crate::parse::parse;
 use std::path::PathBuf;
 
 #[derive(Default, Debug)]
@@ -15,17 +15,17 @@ impl CNF {
     }
 
     /// Creates a cnf formula from a string in dimacs cnf format
-    pub fn from_dimacs(input: &str) -> CNF {
-        let clauses = parse_dimacs_cnf(input).expect("parsing error").1;
-        CNF::from_clauses(&clauses)
+    pub fn from_dimacs(input: &str) -> Result<CNF, String> {
+        parse(input).map(|clauses| CNF::from_clauses(&clauses))
     }
 
     /// Creates a cnf formula from a file in dimacs cnf format
-    pub fn from_file(file: PathBuf) -> CNF {
-        CNF::from_dimacs(std::fs::read_to_string(file).expect("fs error").as_str())
+    pub fn from_file(file: PathBuf) -> Result<CNF, String> {
+        let text = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+        CNF::from_dimacs(&text)
     }
 
-    pub fn from_file_str(file: &str) -> CNF {
+    pub fn from_file_str(file: &str) -> Result<CNF, String> {
         CNF::from_file(PathBuf::from(file))
     }
 
