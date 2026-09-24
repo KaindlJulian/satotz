@@ -1,4 +1,5 @@
 use crate::assignment::AssignedValue;
+use crate::bcp::trail::Trail;
 use crate::cnf::CNF;
 use crate::literal::Literal;
 use crate::resize::Resize;
@@ -50,6 +51,18 @@ impl Solver {
         }
     }
 
+    pub fn solve_with_history(&mut self) -> (Vec<Trail>, bool) {
+        let mut history: Vec<Trail> = vec![];
+        history.push(self.search.bcp.trail.clone());
+        loop {
+            let r = search(&mut self.search);
+            history.push(self.search.bcp.trail.clone());
+            if let Some(result) = r {
+                return (history, result);
+            }
+        }
+    }
+
     pub fn step(&mut self) -> (&mut Self, Option<bool>) {
         let step_result = search(&mut self.search);
         (self, step_result)
@@ -93,5 +106,21 @@ mod tests {
             dbg!(sat);
             assert_eq!(sat, file.file_name().to_str().unwrap().contains(".sat"));
         }
+    }
+
+    #[test]
+    fn test_history_mode() {
+        let cnf = CNF::from_dimacs("1 2 3 0\n-1 2 0\n-2 0\n-1 -2 0\n-3 -4 5 6 0\n-3 4 0\n");
+        let mut solver = Solver::from_cnf(cnf).without_dlis();
+        let hist = solver.solve_with_history().0;
+        dbg!(hist);
+    }
+
+    #[test]
+    fn test_history_mode_file() {
+        let file = "../test_formulas/php_3_2.unsat";
+        let mut solver = Solver::from_cnf(CNF::from_file_str(file)).without_dlis();
+        let hist = solver.solve_with_history().0;
+        dbg!(hist);
     }
 }

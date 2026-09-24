@@ -11,13 +11,13 @@ fn App(cx: Scope) -> impl IntoView {
     let on_submit = move |ev: SubmitEvent| {
         ev.prevent_default();
 
-        let cnf = CNF::from_dimacs(&input_element().expect("<textarea> to exist").value());
+        let cnf = CNF::from_dimacs(&input_element.get().expect("<textarea> to exist").value());
         let mut solver = Solver::from_cnf(cnf);
 
         if solver.solve() {
-            set_name("SATISFIABLE".into());
+            set_name.set("SATISFIABLE".into());
         } else {
-            set_name("UNSATISFIABLE".into());
+            set_name.set("UNSATISFIABLE".into());
         }
     };
 
@@ -26,7 +26,7 @@ fn App(cx: Scope) -> impl IntoView {
         <form on:submit=on_submit>
             <div style="display: flex">
                 <textarea  type="text"
-                    value=name
+                    value=move || name.get()
                     node_ref=input_element
                     style="height:200px; width: 200px;"
                 />

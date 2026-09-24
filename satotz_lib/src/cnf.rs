@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_variable_count() {
-        let cnf = CNF::from_clauses(&vec![vec![1, 2, 3], vec![10]]);
+        let cnf = CNF::from_clauses(&[vec![1, 2, 3], vec![10]]);
 
         // the formula should contain all variables. also variables between 3 and 10
         assert_eq!(10, cnf.variables.len());

@@ -222,6 +222,7 @@ fn bcp_long_clauses(bcp: &mut BcpContext, literal: Literal) -> Result<(), Confli
 mod tests {
     use super::*;
     use crate::cnf::CNF;
+    use std::path::PathBuf;
 
     #[test]
     fn test_basic_bcp() {
@@ -252,6 +253,22 @@ mod tests {
         match propagate(&mut bcp) {
             Err(Conflict::BinaryClause(literals)) => {
                 assert_eq!(literals, cnf.clauses()[2].literals());
+            }
+            _ => panic!("expected a conflict"),
+        };
+    }
+
+    #[test] // satslides 2021 - slide 98
+    fn test_biere_example() {
+        let cnf = CNF::from_file(PathBuf::from("../test_formulas/biereslides.unsat"));
+        let mut bcp = BcpContext::from_cnf(&cnf);
+
+        trail::decide_and_assign(&mut bcp, Literal::from_dimacs(3)); // c=1
+
+        // unit propagate a and b, conflict with first clause
+        match propagate(&mut bcp) {
+            Err(Conflict::LongClause(index)) => {
+                assert_eq!(index, 0);
             }
             _ => panic!("expected a conflict"),
         };

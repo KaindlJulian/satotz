@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-leptos = "0.3.0"
+leptos = { version = "0.3", features = ["stable"] }
 satotz_lib = { path = "../satotz_lib" }
 
 [dev-dependencies]
-wasm-bindgen = "0.2"
+wasm-bindgen = "0.2.128"
 wasm-bindgen-test = "0.3.0"
 web-sys = "0.3"

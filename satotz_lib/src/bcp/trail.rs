@@ -8,7 +8,7 @@ pub type StepIndex = usize;
 
 pub static TOP_DECISION_LEVEL: u32 = 0;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Reason {
     /// Decided by the solver
     SolverDecision,
@@ -22,7 +22,7 @@ pub enum Reason {
 
 impl Reason {
     /// Returns the falsified literals that caused the propagation
-    pub fn causing_literals<'a>(&'a self, context: &'a BcpContext) -> &[Literal] {
+    pub fn causing_literals<'a>(&'a self, context: &'a BcpContext) -> &'a [Literal] {
         match self {
             Reason::SolverDecision | Reason::Unit => &[],
             Reason::Binary(literal) => std::slice::from_ref(literal),
@@ -32,14 +32,14 @@ impl Reason {
 }
 
 /// A step in the implication graph
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Step {
     pub assigned_literal: Literal,
     pub decision_level: u32,
     pub reason: Reason,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Trail {
     /// represents the implication graph
     steps: Vec<Step>,
@@ -115,12 +115,12 @@ pub fn decide_and_assign(bcp: &mut BcpContext, literal: Literal) {
 }
 
 /// backtracks to given decision level, undoing assignments of a higher level
-pub fn backtrack(bcp: &mut BcpContext, decision_level: u32) {
+pub fn backtrack(bcp: &mut BcpContext, target_decision_level: u32) {
     // backtrack target must be lower than current decision level
-    assert!(decision_level < bcp.trail.current_decision_level());
+    assert!(target_decision_level < bcp.trail.current_decision_level());
 
     // Get the index corresponding to the lowest decision to undo
-    let decision_level = decision_level as usize;
+    let decision_level = target_decision_level as usize;
     let target_trail_len = bcp.trail.decisions[decision_level + 1] as usize;
 
     // Undo the assignments

@@ -153,11 +153,10 @@ mod test {
     use crate::bcp::{propagate, BcpContext};
     use crate::cnf::CNF;
     use crate::literal::Variable;
-    use crate::resize::Resize;
 
     #[test]
     fn test_non_chronological_backtracking() {
-        // from https://baldur.iti.kit.edu/sat/files/2019/l07.pdf
+        // https://imgur.com/a/eCsUXiD
         let cnf = CNF::from_dimacs(
             "1 2 0\n2 3 0\n-1 -4 5 0\n-1 4 6 0\n-1 -5 6 0\n-1 4 -6 0\n-1 -5 -6 0\n",
         );
